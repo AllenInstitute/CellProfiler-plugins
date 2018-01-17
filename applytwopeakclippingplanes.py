@@ -34,6 +34,9 @@ import cellprofiler.setting
 
 log = logging.getLogger(__name__)
 
+METHOD_MEDIAN = "Median Intensity"
+METHOD_SUM = "Sum Intensity"
+
 
 class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
     category = "Advanced"
@@ -50,6 +53,22 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
             doc="Image to reference for dual intensity peaks"
         )
 
+        self.aggregation_method = cellprofiler.setting.Choice(
+            text="Slice aggregation method",
+            choices=[METHOD_MEDIAN, METHOD_SUM],
+            value=METHOD_MEDIAN,
+            doc="""\
+Method by which XY slices are grouped to determine peak. 
+
+**{METHOD_MEDIAN}**: Group by median intensity of each slice
+**{METHOD_SUM}**: Group by sum intensity of each slice
+""".format(**{
+                "METHOD_MEDIAN": METHOD_MEDIAN,
+                "METHOD_SUM": METHOD_SUM
+            }
+           )
+        )
+
         self.top_padding = cellprofiler.setting.Integer(
             text="Top Padding",
             value=0,
@@ -60,6 +79,14 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
             text="Bottom Padding",
             value=0,
             doc="Additional slices to keep beyond intensity peak"
+        )
+
+        self.use_gradient = cellprofiler.setting.Binary(
+            text="Use gradient to choose peaks",
+            value=False,
+            doc=""""
+Use the gradient of the aggregation method (instead of the aggregation method itself) 
+to determine clipping planes"""
         )
 
         self.accept_single = cellprofiler.setting.Binary(
@@ -73,8 +100,10 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
 
         return __settings__ + [
             self.reference_name,
+            self.aggregation_method,
             self.top_padding,
             self.bottom_padding,
+            self.use_gradient,
             self.accept_single
         ]
 
@@ -83,8 +112,10 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
 
         return __settings__ + [
             self.reference_name,
+            self.aggregation_method,
             self.top_padding,
             self.bottom_padding,
+            self.use_gradient,
             self.accept_single
         ]
 
@@ -106,9 +137,21 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
         reference = images.get_image(reference_name, must_be_grayscale=True)
         reference_data = reference.pixel_data
 
-        z_median = np.median(reference_data, axis=[1, 2])
-        # `argrelmax` always returns a tuple, but z_median is one dimensional
-        local_maxima = scipy.signal.argrelmax(z_median)[0]
+        if self.aggregation_method.value == METHOD_MEDIAN:
+            aggregation_method = np.median
+        elif self.aggregation_method.value == METHOD_SUM:
+            aggregation_method = np.sum
+        else:
+            raise ValueError("Invalid aggregation method selected")
+
+        # Depending on aggregation method, the numbers can be quite large
+        # Cast as float64 here to ensure that no overflow occurs
+        z_aggregate = aggregation_method(reference_data, axis=(1, 2)).astype(np.float64)
+        if self.use_gradient.value:
+            z_aggregate = np.gradient(z_aggregate)
+
+        # `argrelmax` always returns a tuple, but z_aggregate is one dimensional
+        local_maxima = scipy.signal.argrelmax(z_aggregate)[0]
         num_maxima = len(local_maxima)
 
         if num_maxima == 1 and self.accept_single:
@@ -122,7 +165,7 @@ class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
         # Apply padding based on user preference
         # Ensure the clipping plane isn't beyond the array's index
         bottom_slice = max(local_maxima[0] - self.bottom_padding.value, 0)
-        top_slice = min(local_maxima[1] - self.top_padding.value, len(z_median) - 1)
+        top_slice = min(local_maxima[1] - self.top_padding.value, len(z_aggregate) - 1)
 
         # Apply to new object
         y_data[:bottom_slice, :, :] = 0
