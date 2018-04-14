@@ -160,7 +160,7 @@ Size of the window for moving average.
         y_data = x.segmented.copy()
 
         reference_name = self.reference_name.value
-        reference = images.get_image(reference_name, must_be_grayscale=True)
+        reference = images.get_image(reference_name)
         reference_data = reference.pixel_data
 
         if self.aggregation_method.value == METHOD_MEDIAN:
@@ -190,7 +190,7 @@ Size of the window for moving average.
         if num_maxima == 1 and self.accept_single:
             # Single peak accepted as bottom clipping plane
             # Don't clip off anything from the top
-            local_maxima = [local_maxima[0], -1]
+            local_maxima = [local_maxima[0], len(z_aggregate)]
         elif num_maxima != 2:
             log.warn("Unable to find only two maxima (found {}) - bypassing clipping operation".format(num_maxima))
             local_maxima = [0, -1]
@@ -202,7 +202,8 @@ Size of the window for moving average.
 
         # Apply to new object
         y_data[:bottom_slice, :, :] = 0
-        y_data[top_slice:, :, :] = 0
+        # We need to add 1 here to the top slice to _include_ the peak
+        y_data[top_slice + 1:, :, :] = 0
 
         objects = cellprofiler.object.Objects()
 

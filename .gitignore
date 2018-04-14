@@ -46,3 +46,4 @@ dist/
 frozen_version.py
 plugins/
 src/
+\.pytest_cache/
