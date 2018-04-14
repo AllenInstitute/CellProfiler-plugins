@@ -84,9 +84,28 @@ Method by which XY slices are grouped to determine peak.
         self.use_gradient = cellprofiler.setting.Binary(
             text="Use gradient to choose peaks",
             value=False,
-            doc=""""
+            doc="""
 Use the gradient of the aggregation method (instead of the aggregation method itself) 
 to determine clipping planes"""
+        )
+
+        self.use_moving_average = cellprofiler.setting.Binary(
+            text="Apply a moving average to determine peaks",
+            value=False,
+            doc="""
+Use a `moving average`_ (also called a "running mean") to smooth the curve
+before calculating the peaks.
+
+..  _moving average: https://en.wikipedia.org/wiki/Moving_average
+"""
+        )
+
+        self.moving_average_size = cellprofiler.setting.Integer(
+            text="Moving average window size",
+            value=3,
+            doc="""
+Size of the window for moving average.
+"""
         )
 
         self.accept_single = cellprofiler.setting.Binary(
@@ -104,20 +123,27 @@ to determine clipping planes"""
             self.top_padding,
             self.bottom_padding,
             self.use_gradient,
+            self.use_moving_average,
+            self.moving_average_size,
             self.accept_single
         ]
 
     def visible_settings(self):
         __settings__ = super(ApplyTwoPeakClippingPlanes, self).visible_settings()
 
-        return __settings__ + [
+        __settings__ += [
             self.reference_name,
             self.aggregation_method,
             self.top_padding,
             self.bottom_padding,
             self.use_gradient,
-            self.accept_single
+            self.use_moving_average
         ]
+
+        if self.use_moving_average.value:
+            __settings__ += [self.moving_average_size]
+
+        return __settings__ + [self.accept_single]
 
     def run(self, workspace):
         x_name = self.x_name.value
@@ -149,6 +175,13 @@ to determine clipping planes"""
         z_aggregate = aggregation_method(reference_data, axis=(1, 2)).astype(np.float64)
         if self.use_gradient.value:
             z_aggregate = np.gradient(z_aggregate)
+
+        # Depending on if the user requested a moving average, we may need to apply this
+        # over the array
+        # https://stackoverflow.com/a/22621523/3277713
+        if self.use_moving_average.value:
+            n = self.moving_average_size.value
+            z_aggregate = np.convolve(z_aggregate, np.ones((n, ))/n, mode='valid')
 
         # `argrelmax` always returns a tuple, but z_aggregate is one dimensional
         local_maxima = scipy.signal.argrelmax(z_aggregate)[0]
