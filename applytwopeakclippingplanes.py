@@ -220,3 +220,36 @@ Size of the window for moving average.
             workspace.display_data.y_data = y_data
 
             workspace.display_data.dimensions = dimensions
+
+            workspace.display_data.z_aggregate = z_aggregate
+
+    def display(self, workspace, figure):
+        layout = (2, 2)
+
+        figure.set_subplots(
+            dimensions=workspace.display_data.dimensions,
+            subplots=layout
+        )
+
+        figure.subplot_imshow_labels(
+            image=workspace.display_data.x_data,
+            title=self.x_name.value,
+            x=0,
+            y=0
+        )
+
+        figure.subplot_imshow_labels(
+            image=workspace.display_data.y_data,
+            sharexy=figure.subplot(0, 0),
+            title=self.y_name.value,
+            x=1,
+            y=0
+        )
+
+        figure.subplot_scatter(
+            xvals=np.arange(len(workspace.display_data.z_aggregate)),
+            yvals=workspace.display_data.z_aggregate,
+            x=0,
+            y=1,
+            title=self.aggregation_method.value
+        )
