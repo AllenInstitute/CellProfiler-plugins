@@ -181,7 +181,7 @@ Size of the window for moving average.
         # https://stackoverflow.com/a/22621523/3277713
         if self.use_moving_average.value:
             n = self.moving_average_size.value
-            z_aggregate = np.convolve(z_aggregate, np.ones((n, ))/n, mode='valid')
+            z_aggregate = np.convolve(z_aggregate, np.ones((n, ))/n, mode='same')
 
         # `argrelmax` always returns a tuple, but z_aggregate is one dimensional
         local_maxima = scipy.signal.argrelmax(z_aggregate)[0]

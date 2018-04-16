@@ -27,7 +27,7 @@ def two_peak_reference():
     reference = numpy.ones((20, 20, 10), dtype=numpy.uint16)
 
     # Create some "peaks"
-    reference *= numpy.asarray([1, 3, 5, 9, 7, 6, 4, 7, 4, 2], dtype=numpy.uint16)
+    reference *= numpy.asarray([1, 7, 9, 6, 5, 6, 9, 8, 4, 2], dtype=numpy.uint16)
     reference *= 1000
 
     # Make the reference noisy
@@ -73,8 +73,8 @@ def test_median_two_peak(volume_labels, two_peak_reference, module, object_set_e
 
     expected = labels.copy()
     # Everything outside of the peaks should be trimmed
-    expected[:3] = 0
-    expected[-2:] = 0
+    expected[:2] = 0
+    expected[-3:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
 
@@ -99,8 +99,8 @@ def test_sum_two_peak(volume_labels, two_peak_reference, module, object_set_empt
 
     expected = labels.copy()
     # Everything outside of the peaks should be trimmed
-    expected[:3] = 0
-    expected[-2:] = 0
+    expected[:2] = 0
+    expected[-3:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
 
@@ -119,7 +119,7 @@ def test_padding_out(volume_labels, two_peak_reference, module, object_set_empty
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
     module.top_padding.value = -1
-    module.bottom_padding.value = 2
+    module.bottom_padding.value = 1
 
     module.run(workspace_empty)
 
@@ -129,7 +129,7 @@ def test_padding_out(volume_labels, two_peak_reference, module, object_set_empty
     # Everything outside of the peaks should be trimmed
     # But since we've added padding it should go further than normal
     expected[:1] = 0
-    expected[-1:] = 0
+    expected[-2:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
 
@@ -157,8 +157,8 @@ def test_padding_in(volume_labels, two_peak_reference, module, object_set_empty,
     expected = labels.copy()
     # Everything outside of the peaks should be trimmed
     # But since we've added padding it should go further than normal
-    expected[:5] = 0
-    expected[-3:] = 0
+    expected[:4] = 0
+    expected[-4:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
 
@@ -185,5 +185,89 @@ def test_median_single_peak(volume_labels, single_peak_reference, module, object
     expected = labels.copy()
     # Everything before the bottom
     expected[:3] = 0
+
+    numpy.testing.assert_array_equal(actual, expected)
+
+
+def test_moving_average_two_peak(volume_labels, two_peak_reference, module, object_set_empty, objects_empty,
+                                 image_set_empty, image_empty, workspace_empty):
+    labels = volume_labels.copy()
+    reference = two_peak_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+    module.use_moving_average.value = True
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    expected = labels.copy()
+    # With a window size of 3 these cutoffs should be the same
+    expected[:2] = 0
+    expected[-3:] = 0
+
+    numpy.testing.assert_array_equal(actual, expected)
+
+
+@pytest.mark.xfail(strict=True)
+def test_moving_average_large_window(volume_labels, two_peak_reference, module, object_set_empty, objects_empty,
+                                     image_set_empty, image_empty, workspace_empty):
+    labels = volume_labels.copy()
+    reference = two_peak_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+    module.use_moving_average.value = True
+    module.moving_average_size.value = 5
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    expected = labels.copy()
+    # These should NOT be the same
+    # The window is so large only one peak should be found
+    expected[:2] = 0
+    expected[-3:] = 0
+
+    numpy.testing.assert_array_equal(actual, expected)
+
+
+def test_gradient_two_peak(volume_labels, two_peak_reference, module, object_set_empty, objects_empty,
+                           image_set_empty, image_empty, workspace_empty):
+    labels = volume_labels.copy()
+    reference = two_peak_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+    module.use_gradient.value = True
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    expected = labels.copy()
+    # Everything outside of the peaks should be trimmed
+    expected[:2] = 0
+    expected[-3:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
