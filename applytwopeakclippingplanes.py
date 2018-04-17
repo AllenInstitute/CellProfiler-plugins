@@ -193,7 +193,7 @@ Size of the window for moving average.
             local_maxima = [local_maxima[0], len(z_aggregate)]
         elif num_maxima != 2:
             log.warn("Unable to find only two maxima (found {}) - bypassing clipping operation".format(num_maxima))
-            local_maxima = [0, -1]
+            local_maxima = [0, 0]
 
         # Apply padding based on user preference
         # Ensure the clipping plane isn't beyond the array's index
@@ -202,8 +202,10 @@ Size of the window for moving average.
 
         # Apply to new object
         y_data[:bottom_slice, :, :] = 0
-        # We need to add 1 here to the top slice to _include_ the peak
-        y_data[top_slice + 1:, :, :] = 0
+        # First check if top slice is zero, if so then we need to bypass
+        if top_slice != 0:
+            # We need to add 1 here to the top slice to _include_ the peak
+            y_data[top_slice + 1:, :, :] = 0
 
         objects = cellprofiler.object.Objects()
 
@@ -219,9 +221,11 @@ Size of the window for moving average.
 
             workspace.display_data.y_data = y_data
 
-            workspace.display_data.dimensions = dimensions
+            workspace.display_data.reference = reference_data
 
             workspace.display_data.z_aggregate = z_aggregate
+
+            workspace.display_data.dimensions = dimensions
 
     def display(self, workspace, figure):
         layout = (2, 2)
@@ -246,10 +250,18 @@ Size of the window for moving average.
             y=0
         )
 
+        figure.subplot_imshow_grayscale(
+            image=workspace.display_data.reference,
+            sharexy=figure.subplot(0, 0),
+            title=self.reference_name.value,
+            x=0,
+            y=1
+        )
+
         figure.subplot_scatter(
             xvals=np.arange(len(workspace.display_data.z_aggregate)),
             yvals=workspace.display_data.z_aggregate,
-            x=0,
+            x=1,
             y=1,
             title=self.aggregation_method.value
         )

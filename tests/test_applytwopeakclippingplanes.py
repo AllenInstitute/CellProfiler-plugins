@@ -56,18 +56,16 @@ def single_peak_reference():
 @pytest.fixture(scope="function")
 def two_peak_gradient_reference():
     # Note: this is out of order for easier broadcasting later
-    reference = numpy.ones((20, 20, 20), dtype=numpy.uint16)
+    reference = numpy.ones((20, 20, 10), dtype=numpy.uint16)
 
     # Create some "peaks"
     # The peaks here are exaggerated so that the gradient method
     # picks them up appropriately
-    reference *= numpy.asarray([1, 2, 2, 2, 3, 4, 9, 6, 3, 2,
-                                2, 3, 3, 8, 5, 3, 3, 2, 2, 1], dtype=numpy.uint16)
+    reference *= numpy.asarray([1, 1, 5, 9, 5, 3, 5, 9, 3, 3], dtype=numpy.uint16)
     reference *= 1000
 
     # Make the reference noisy
     reference = reference.T
-    reference = numpy.random.normal(reference, 100)
 
     return reference.astype(numpy.uint16)
 
@@ -277,7 +275,7 @@ def test_gradient_two_peak(volume_labels, two_peak_gradient_reference, module, o
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
-    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_SUM
     module.use_gradient.value = True
 
     module.run(workspace_empty)
@@ -286,7 +284,31 @@ def test_gradient_two_peak(volume_labels, two_peak_gradient_reference, module, o
 
     expected = labels.copy()
     #
-    expected[:5] = 0
-    expected[-7:] = 0
+    expected[:2] = 0
+    expected[-3:] = 0
+
+    numpy.testing.assert_array_equal(actual, expected)
+
+
+def test_bypass_preserves(volume_labels, single_peak_reference, module, object_set_empty, objects_empty,
+                          image_set_empty, image_empty, workspace_empty):
+    labels = volume_labels.copy()
+    reference = single_peak_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    # Since the operation should be bypassed, the input should equal the output
+    expected = labels.copy()
 
     numpy.testing.assert_array_equal(actual, expected)
