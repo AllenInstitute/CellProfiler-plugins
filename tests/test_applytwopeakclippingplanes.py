@@ -70,6 +70,23 @@ def two_peak_gradient_reference():
     return reference.astype(numpy.uint16)
 
 
+@pytest.fixture(scope="function")
+def aposteriori_reference():
+    # Note: this is out of order for easier broadcasting later
+    reference = numpy.ones((20, 20, 10), dtype=numpy.uint16)
+
+    # Create some "peaks"
+    # There are 3 potential peaks in this array
+    reference *= numpy.asarray([1, 7, 9, 5, 6, 8, 3, 5, 8, 3], dtype=numpy.uint16)
+    reference *= 1000
+
+    # Make the reference noisy
+    reference = reference.T
+    reference = numpy.random.normal(reference, 100)
+
+    return reference.astype(numpy.uint16)
+
+
 def test_median_two_peak(volume_labels, two_peak_reference, module, object_set_empty, objects_empty,
                          image_set_empty, image_empty, workspace_empty):
     labels = volume_labels.copy()
@@ -305,10 +322,15 @@ def test_gradient_two_peak(volume_labels, two_peak_gradient_reference, module, o
     numpy.testing.assert_array_equal(actual, expected)
 
 
-def test_bypass_preserves(volume_labels, single_peak_reference, module, object_set_empty, objects_empty,
+@pytest.mark.parametrize(
+    argnames="reference",
+    argvalues=[single_peak_reference(), aposteriori_reference()],
+    ids=["single_peak", "triple_peak"]
+)
+def test_bypass_preserves(volume_labels, reference, module, object_set_empty, objects_empty,
                           image_set_empty, image_empty, workspace_empty):
     labels = volume_labels.copy()
-    reference = single_peak_reference.copy()
+    reference = reference.copy()
 
     objects_empty.segmented = labels
     image_empty.pixel_data = reference
@@ -327,5 +349,33 @@ def test_bypass_preserves(volume_labels, single_peak_reference, module, object_s
 
     # Since the operation should be bypassed, the input should equal the output
     expected = labels.copy()
+
+    numpy.testing.assert_array_equal(actual, expected)
+
+
+def test_aposteriori_triple_peak(volume_labels, aposteriori_reference, module, object_set_empty, objects_empty,
+                                 image_set_empty, image_empty, workspace_empty):
+    labels = volume_labels.copy()
+    reference = aposteriori_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_APOSTERIORI
+
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    expected = labels.copy()
+    # Everything outside of the peaks should be trimmed
+    expected[:2] = 0
+    expected[-5:] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
