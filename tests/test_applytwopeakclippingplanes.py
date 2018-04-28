@@ -82,6 +82,8 @@ def test_median_two_peak(volume_labels, two_peak_reference, module, object_set_e
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
+
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
 
     module.run(workspace_empty)
@@ -108,6 +110,8 @@ def test_sum_two_peak(volume_labels, two_peak_reference, module, object_set_empt
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
+
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_SUM
 
     module.run(workspace_empty)
@@ -133,6 +137,8 @@ def test_padding_out(volume_labels, two_peak_reference, module, object_set_empty
     module.x_name.value = "InputObjects"
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
     module.top_padding.value = -1
@@ -163,6 +169,8 @@ def test_padding_in(volume_labels, two_peak_reference, module, object_set_empty,
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
+
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
     module.top_padding.value = 1
     module.bottom_padding.value = -2
@@ -192,8 +200,9 @@ def test_median_single_peak(volume_labels, single_peak_reference, module, object
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_SINGLE
+
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
-    module.accept_single.value = True
 
     module.run(workspace_empty)
 
@@ -217,6 +226,8 @@ def test_moving_average_two_peak(volume_labels, two_peak_reference, module, obje
     module.x_name.value = "InputObjects"
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
     module.use_moving_average.value = True
@@ -245,6 +256,8 @@ def test_moving_average_large_window(volume_labels, two_peak_reference, module, 
     module.x_name.value = "InputObjects"
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
     module.use_moving_average.value = True
@@ -275,6 +288,8 @@ def test_gradient_two_peak(volume_labels, two_peak_gradient_reference, module, o
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
 
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
+
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_SUM
     module.use_gradient.value = True
 
@@ -301,6 +316,8 @@ def test_bypass_preserves(volume_labels, single_peak_reference, module, object_s
     module.x_name.value = "InputObjects"
     module.y_name.value = "OutputObjects"
     module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
 

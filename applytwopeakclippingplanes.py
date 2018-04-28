@@ -207,7 +207,7 @@ and the next closest peak when traveling "up" the z-stack is chosen as the top.
             local_maxima = scipy.signal.argrelmax(z_aggregate)[0]
             num_maxima = len(local_maxima)
 
-            if num_maxima == 1 and self.peak_method:
+            if num_maxima == 1 and self.peak_method.value == PEAK_SINGLE:
                 # Single peak accepted as bottom clipping plane
                 # Don't clip off anything from the top
                 local_maxima = [local_maxima[0], len(z_aggregate)]
