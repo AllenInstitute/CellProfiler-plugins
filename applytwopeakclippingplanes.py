@@ -219,7 +219,7 @@ and the next closest peak when traveling "up" the z-stack is chosen as the top.
             # Apply padding based on user preference
             # Ensure the clipping plane isn't beyond the array's index
             bottom_slice = max(local_maxima[0] - self.bottom_padding.value, 0)
-            top_slice = min(local_maxima[1] - self.top_padding.value, len(z_aggregate) - 1)
+            top_slice = min(local_maxima[1] + self.top_padding.value, len(z_aggregate) - 1)
 
         # Aposteriori method
         else:

@@ -158,7 +158,7 @@ def test_padding_out(volume_labels, two_peak_reference, module, object_set_empty
     module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
-    module.top_padding.value = -1
+    module.top_padding.value = 1
     module.bottom_padding.value = 1
 
     module.run(workspace_empty)
@@ -189,7 +189,7 @@ def test_padding_in(volume_labels, two_peak_reference, module, object_set_empty,
     module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
 
     module.aggregation_method.value = applytwopeakclippingplanes.METHOD_MEDIAN
-    module.top_padding.value = 1
+    module.top_padding.value = -1
     module.bottom_padding.value = -2
 
     module.run(workspace_empty)
