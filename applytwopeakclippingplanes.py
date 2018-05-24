@@ -40,6 +40,7 @@ METHOD_SUM = "Sum Intensity"
 PEAK_SINGLE = "Accept Single Peak As Bottom"
 PEAK_NAIVE = "Accept Only Two Peaks"
 PEAK_APOSTERIORI = "Accept Nearest Peak After Highest Value"
+PEAK_MAX_ONLY = "Accept Only the Maximum Peak"
 
 
 class ApplyTwoPeakClippingPlanes(cellprofiler.module.ObjectProcessing):
@@ -114,21 +115,24 @@ Size of the window for moving average.
 
         self.peak_method = cellprofiler.setting.Choice(
             text="Peak Selection Method",
-            choices=[PEAK_NAIVE, PEAK_SINGLE, PEAK_APOSTERIORI],
+            choices=[PEAK_NAIVE, PEAK_SINGLE, PEAK_APOSTERIORI, PEAK_MAX_ONLY],
             value=PEAK_NAIVE,
             doc="""
 Method for determining which peaks to choose for the clipping planes. 
 
-*{PEAK_NAIVE}*: If the number of local maxima found is 2, accept those two as the 
+**{PEAK_NAIVE}**: If the number of local maxima found is 2, accept those two as the 
 peaks for the clipping planes. Otherwise, clip nothing.
-*{PEAK_SINGLE}*: Same as *{PEAK_NAIVE}*, except if only one local maxima exists, 
+**{PEAK_SINGLE}**: Same as *{PEAK_NAIVE}*, except if only one local maxima exists, 
 that will be chosen as the bottom clipping plane (the top will not be clipped).
-*{PEAK_APOSTERIORI}*: The maximum of the aggregate is chosen as the bottom clipping plane,
+**{PEAK_APOSTERIORI}**: The maximum of the aggregate is chosen as the bottom clipping plane,
 and the next closest peak when traveling "up" the z-stack is chosen as the top.
+**{PEAK_MAX_ONLY}**: The maximum point found by the aggregation method will be used
+as the bottom clipping plane. *No clipping plane for the top will be used.*
 """.format(**{
                 "PEAK_NAIVE": PEAK_NAIVE,
                 "PEAK_SINGLE": PEAK_SINGLE,
-                "PEAK_APOSTERIORI": PEAK_APOSTERIORI
+                "PEAK_APOSTERIORI": PEAK_APOSTERIORI,
+                "PEAK_MAX_ONLY": PEAK_MAX_ONLY
             })
         )
 
@@ -201,6 +205,10 @@ and the next closest peak when traveling "up" the z-stack is chosen as the top.
             n = self.moving_average_size.value
             z_aggregate = np.convolve(z_aggregate, np.ones((n, ))/n, mode='same')
 
+        # Set defaults for the bottom and top index
+        bottom_index = 0
+        top_index = len(z_aggregate)
+
         # scipy-signal based local maxima
         if self.peak_method.value in [PEAK_SINGLE, PEAK_NAIVE]:
             # `argrelmax` always returns a tuple, but z_aggregate is one dimensional
@@ -210,33 +218,36 @@ and the next closest peak when traveling "up" the z-stack is chosen as the top.
             if num_maxima == 1 and self.peak_method.value == PEAK_SINGLE:
                 # Single peak accepted as bottom clipping plane
                 # Don't clip off anything from the top
-                local_maxima = [local_maxima[0], len(z_aggregate)]
+                bottom_index = local_maxima[0]
             elif num_maxima != 2:
                 log.warning("Unable to find only two maxima (found {}) - bypassing clipping operation".format(num_maxima))
-                log.warning("Maxima found af the following indices: {}".format(local_maxima))
-                local_maxima = [0, 0]
-
-            # Apply padding based on user preference
-            # Ensure the clipping plane isn't beyond the array's index
-            bottom_slice = max(local_maxima[0] - self.bottom_padding.value, 0)
-            top_slice = min(local_maxima[1] + self.top_padding.value, len(z_aggregate) - 1)
-
-        # Aposteriori method
-        else:
-            # Find the bottom (e.g. maximum of aggregate)
-            bottom_slice = np.argmax(z_aggregate)
-            # Get the array from there on out
-            upper_z_aggregate = z_aggregate[bottom_slice + 1:]
-            # Find all the local maxima of the upper portion (see above for the indexing)
-            local_maxima = scipy.signal.argrelmax(upper_z_aggregate)[0]
-            # Get the first local extrema (if there are any)
-            if not len(local_maxima):
-                log.warning("Unable to find a second maximum after the first initial one - bypassing clipping operation")
-                bottom_slice = 0
-                top_slice = 0
+                log.warning("Maxima found at the following indices: {}".format(local_maxima))
             else:
-                # Add the index of the bottom slice as offset
-                top_slice = local_maxima[0] + bottom_slice
+                bottom_index, top_index = local_maxima
+
+        # Aposteriori method or bottom only
+        elif self.peak_method.value in [PEAK_APOSTERIORI, PEAK_MAX_ONLY]:
+            # Find the bottom (e.g. maximum of aggregate)
+            bottom_index = np.argmax(z_aggregate)
+
+            # If the method is max only, we're done
+            if self.peak_method.value == PEAK_APOSTERIORI:
+                # Get the array from there on out
+                upper_z_aggregate = z_aggregate[bottom_index + 1:]
+                # Find all the local maxima of the upper portion (see above for the indexing)
+                local_maxima = scipy.signal.argrelmax(upper_z_aggregate)[0]
+                # Get the first local extrema (if there are any)
+                if not len(local_maxima):
+                    log.warning("Unable to find a second maximum after the first initial one - bypassing clipping operation")
+                    bottom_index = 0
+                else:
+                    # Add the index of the bottom slice as offset
+                    top_index = local_maxima[0] + bottom_index
+
+        # Apply padding based on user preference
+        # Ensure the clipping plane isn't beyond the array's index
+        bottom_slice = max(bottom_index - self.bottom_padding.value, 0)
+        top_slice = min(top_index + self.top_padding.value, len(z_aggregate) - 1)
 
         # Apply to new object
         y_data[:bottom_slice, :, :] = 0
