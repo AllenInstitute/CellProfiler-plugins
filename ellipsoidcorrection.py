@@ -68,6 +68,7 @@ class EllipsoidCorrection(cellprofiler.module.ImageProcessing):
         return __settings__
 
     def run(self, workspace):
+        self.function = ellipsoid_correct
 
         super(EllipsoidCorrection, self).run(workspace)
 
