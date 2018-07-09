@@ -16,6 +16,7 @@ NO           YES          NO
 
 """
 
+import ast
 import numpy
 import skimage
 import skimage.io
@@ -37,53 +38,32 @@ class EllipsoidCorrection(cellprofiler.module.ImageProcessing):
     def create_settings(self):
         super(EllipsoidCorrection, self).create_settings()
 
-        self.sigma_z = cellprofiler.setting.Float(
-            text="Sigma for z-axis",
-            value=3.,
-            minval=0
+        self.sigma_image = cellprofiler.setting.Text(
+            text="Sigma for smoothing the image",
+            value="(3, 21, 21)",
+            doc="Specify this either as a single integer or a tuple of integers the same shape as the image"
         )
 
-        self.sigma_y = cellprofiler.setting.Float(
-            text="Sigma for y-axis",
-            value=21.,
-            minval=0
+        self.sigma_correction = cellprofiler.setting.Text(
+            text="Sigma for smoothing the correction ellipsoid",
+            value="(20, 80, 80)",
+            doc="Specify this either as a single integer or a tuple of integers the same shape as the image"
         )
 
-        self.sigma_x = cellprofiler.setting.Float(
-            text="Sigma for x-axis",
-            value=21.,
-            minval=0
-        )
-
-        self.upper_percentile = cellprofiler.setting.Float(
-            text="Upper percentile intensity value cutoff",
-            value=99.,
+        self.correction_factor = cellprofiler.setting.Float(
+            text="Factor when applying the correction function",
+            value=0.5,
             minval=0.,
-            maxval=100.
-        )
-
-        self.set_percentile = cellprofiler.setting.Float(
-            text="Percentile value to set pixels beyond upper bound",
-            value=50.,
-            minval=0.,
-            maxval=100.
-        )
-
-        self.log_gain = cellprofiler.setting.Float(
-            text="Log adjustment gain",
-            value=1,
+            maxval=1.,
         )
 
     def settings(self):
         __settings__ = super(EllipsoidCorrection, self).settings()
 
         __settings__ += [
-            self.sigma_z,
-            self.sigma_y,
-            self.sigma_x,
-            self.upper_percentile,
-            self.set_percentile,
-            self.log_gain
+            self.sigma_image,
+            self.sigma_correction,
+            self.correction_factor
         ]
 
         return __settings__
@@ -92,12 +72,9 @@ class EllipsoidCorrection(cellprofiler.module.ImageProcessing):
         __settings__ = super(EllipsoidCorrection, self).visible_settings()
 
         __settings__ += [
-            self.sigma_z,
-            self.sigma_y,
-            self.sigma_x,
-            self.upper_percentile,
-            self.set_percentile,
-            self.log_gain
+            self.sigma_image,
+            self.sigma_correction,
+            self.correction_factor
         ]
 
         return __settings__
@@ -108,24 +85,20 @@ class EllipsoidCorrection(cellprofiler.module.ImageProcessing):
         super(EllipsoidCorrection, self).run(workspace)
 
 
-def ellipsoid_correct(image, sig_z, sig_y, sig_x, upper_percentile, set_percentile, log_gain):
-    sigmas = (sig_z, sig_y, sig_x)
-    super_smoothed = (skimage.filters.gaussian(image, sigma=sigmas, mode='constant') /
-                      skimage.filters.gaussian(numpy.ones(image.shape), sigma=sigmas, mode='constant'))
-    skimage.util.io
+def ellipsoid_correct(image, sigma_image, sigma_correction, correction_factor):
+    # Since we're asking for a tuple or an integer, we have to literal eval the string
+    # This is safe against code injection
+    sigma_image = ast.literal_eval(sigma_image)
+    sigma_correction = ast.literal_eval(sigma_correction)
 
-    # This is doing the opposite of what I want
-    corrected = skimage.img_as_float(image) * super_smoothed
+    smoothed_orig = skimage.filters.gaussian(image, sigma=sigma_image, mode='wrap')
+    correction_ellipsoid = skimage.filters.gaussian(numpy.ones(image.shape), sigma=sigma_correction, mode='constant')
 
-    # Ensure all the values are positive
-    trimmed = corrected + numpy.abs(corrected.min())
-    upper = numpy.percentile(trimmed, upper_percentile)
-    set_val = numpy.percentile(trimmed, set_percentile)
-    trimmed[trimmed > upper] = set_val
+    smoothed_corrected = smoothed_orig * skimage.exposure.rescale_intensity(correction_ellipsoid)
 
-    # Log scale the image
-    # scaled = skimage.exposure.adjust_log(trimmed, gain=log_gain)
+    corrected_image = skimage.img_as_float(image) + (correction_factor * smoothed_corrected)
 
-    # scaled = skimage.exposure.rescale_intensity(scaled)
+    # Need to rescale the intensity now to get it in valid float range
+    corrected_image = skimage.exposure.rescale_intensity(corrected_image)
 
-    return skimage.img_as_uint(trimmed)
+    return skimage.img_as_uint(corrected_image)
