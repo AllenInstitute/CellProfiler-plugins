@@ -292,6 +292,9 @@ Only available when using the {O_SHAPE}-based method.
         # Re-shift all of the labels into the positive realm
         y_data += numpy.abs(numpy.min(y_data)) + 1
 
+        # Re-apply the background
+        y_data[zeros] = 0
+
         if self.declump_method.value == O_SHAPE and self.preserve_all.value:
             # It's not possible for the shape based method to *create* objects,
             # it can only drop them. Thus, if we XOR the images, we should get the
@@ -305,9 +308,6 @@ Only available when using the {O_SHAPE}-based method.
             for missing in numpy.unique(x_data[missing_labels]):
                 curr_max = y_data.max()
                 y_data[x_data == missing] = curr_max + 1
-
-        # Re-apply the background
-        y_data[zeros] = 0
 
         objects = cellprofiler.object.Objects()
         objects.segmented = y_data.astype(numpy.uint16)
