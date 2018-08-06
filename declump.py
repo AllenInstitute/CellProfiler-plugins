@@ -261,6 +261,9 @@ Only available when using the {O_SHAPE}-based method.
         seeds = skimage.morphology.binary_dilation(seeds, self.structuring_element.value)
         seeds_dtype = (numpy.int16 if x.count < numpy.iinfo(numpy.int16).max else numpy.int32)
 
+        # Ensure seeds don't extend beyond the objects they're supposed to be in
+        seeds = seeds & x_data.astype(bool)
+
         # NOTE: Not my work, the comments below are courtesy of Ray
         #
         # Create a marker array where the unlabeled image has a label of
