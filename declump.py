@@ -159,6 +159,16 @@ Volumetric images will require volumetric structuring elements.
             doc="Connectivity for the watershed algorithm. Default is 1, maximum is number of dimensions of the image"
         )
 
+        self.preserve_all = cellprofiler.setting.Binary(
+            text="Preserve objects that do not receive seeds",
+            value=True,
+            doc="""
+Depending on the seeding parameters, some objects may not receive seeds. Enabling his setting 
+will still preserve the objects that do not receive seeds.
+
+Only available when using the {O_SHAPE}-based method.
+""".format(O_SHAPE=O_SHAPE))
+
     def settings(self):
         __settings__ = super(DeclumpObjects, self).settings()
 
@@ -171,7 +181,8 @@ Volumetric images will require volumetric structuring elements.
             self.exclude_border,
             self.max_seeds,
             self.structuring_element,
-            self.connectivity
+            self.connectivity,
+            self.preserve_all
         ]
 
     def visible_settings(self):
@@ -191,6 +202,9 @@ Volumetric images will require volumetric structuring elements.
             self.structuring_element,
             self.connectivity
         ]
+
+        if self.declump_method.value == O_SHAPE:
+            __settings__ += [self.preserve_all]
 
         return __settings__
 
@@ -274,6 +288,21 @@ Volumetric images will require volumetric structuring elements.
         zeros = numpy.where(y_data == 0)
         # Re-shift all of the labels into the positive realm
         y_data += numpy.abs(numpy.min(y_data)) + 1
+
+        if self.declump_method.value == O_SHAPE and self.preserve_all.value:
+            # It's not possible for the shape based method to *create* objects,
+            # it can only drop them. Thus, if we XOR the images, we should get the
+            # areas where objects were dropped. Because the image has essentially
+            # been re-segmented, we're going to need to add these back by ensuring
+            # they get the 'next' (read: largest) integer value
+            missing_labels = y_data.astype(bool) ^ x_data.astype(bool)
+
+            # For each of the missing objects, we need to add them back in as the
+            # next highest value
+            for missing in numpy.unique(x_data[missing_labels]):
+                curr_max = y_data.max()
+                y_data[x_data == missing] = curr_max + 1
+
         # Re-apply the background
         y_data[zeros] = 0
 
@@ -291,3 +320,4 @@ Volumetric images will require volumetric structuring elements.
             workspace.display_data.y_data = y_data
 
             workspace.display_data.dimensions = x.dimensions
+
