@@ -388,3 +388,46 @@ def test_max_only(volume_labels, max_only_meta_fixture, module, object_set_empty
     expected[:expected_bottom] = 0
 
     numpy.testing.assert_array_equal(actual, expected)
+
+
+@pytest.mark.parametrize('top_exclude', [x for x in range(4)])
+@pytest.mark.parametrize('bottom_exclude', [x for x in range(4)])
+def test_excluding_slices(volume_labels, top_exclude, bottom_exclude,
+                          objects_empty, image_empty, module,
+                          workspace_empty, object_set_empty, image_set_empty):
+    # Note: this is out of order for easier broadcasting later
+    parabolic_reference = numpy.ones((20, 20, 9), dtype=numpy.uint16)
+
+    # Create a parabolic intensity curve so there are only ever two peaks
+    # and they're always at the "ends
+    parabolic_reference *= numpy.asarray([9, 7, 5, 3, 1, 3, 5, 7, 9], dtype=numpy.uint16)
+    parabolic_reference *= 1000
+
+    parabolic_reference = parabolic_reference.T.astype(numpy.uint16)
+
+    labels = volume_labels.copy()
+    reference = parabolic_reference.copy()
+
+    objects_empty.segmented = labels
+    image_empty.pixel_data = reference
+
+    module.x_name.value = "InputObjects"
+    module.y_name.value = "OutputObjects"
+    module.reference_name.value = "example"
+
+    module.peak_method.value = applytwopeakclippingplanes.PEAK_NAIVE
+    module.aggregation_method.value = applytwopeakclippingplanes.METHOD_SUM
+    module.top_exclude.value = top_exclude
+    module.bottom_exclude.value = bottom_exclude
+
+    module.run(workspace_empty)
+
+    actual = object_set_empty.get_objects("OutputObjects").segmented
+
+    expected = labels.copy()
+    # The peaks should be the same slice as the excluded slices
+    expected[:bottom_exclude] = 0
+    if top_exclude != 0:
+        expected[-top_exclude:] = 0
+
+    numpy.testing.assert_array_equal(actual, expected)

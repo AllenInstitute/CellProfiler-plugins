@@ -87,6 +87,18 @@ Method by which XY slices are grouped to determine peak.
             doc="Additional slices to keep beyond intensity peak"
         )
 
+        self.top_exclude = cellprofiler.setting.Integer(
+            text="Exclude from top",
+            value=0,
+            doc="Slices to exclude from the top of the stack before performing the aggregation"
+        )
+
+        self.bottom_exclude = cellprofiler.setting.Integer(
+            text="Exclude from bottom",
+            value=0,
+            doc="Slices to exclude from the top of the stack before performing the aggregation"
+        )
+
         self.use_gradient = cellprofiler.setting.Binary(
             text="Use gradient to choose peaks",
             value=False,
@@ -145,7 +157,9 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             self.use_gradient,
             self.use_moving_average,
             self.moving_average_size,
-            self.peak_method
+            self.peak_method,
+            self.top_exclude,
+            self.bottom_exclude
         ]
 
     def visible_settings(self):
@@ -156,6 +170,8 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             self.aggregation_method,
             self.top_padding,
             self.bottom_padding,
+            self.top_exclude,
+            self.bottom_exclude,
             self.use_gradient,
             self.use_moving_average
         ]
@@ -203,6 +219,11 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             n = self.moving_average_size.value
             z_aggregate = np.convolve(z_aggregate, np.ones((n, ))/n, mode='same')
 
+        # Remove any slices the user requested to be excluded from the aggregation
+        bottom_exclude = self.bottom_exclude.value
+        top_exclude = self.top_exclude.value
+        z_aggregate = z_aggregate[bottom_exclude:len(z_aggregate) - top_exclude]
+
         # Set defaults for the bottom and top index
         bottom_index = 0
         top_index = len(z_aggregate)
@@ -240,8 +261,10 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
 
         # Apply padding based on user preference
         # Ensure the clipping plane isn't beyond the array's index
-        bottom_slice = max(bottom_index - self.bottom_padding.value, 0)
-        top_slice = min(top_index + self.top_padding.value, len(z_aggregate) - 1)
+        # Also include the excluded slices (we're only adding bottom_exclude because
+        # top_exclude doesn't affect the indexing of the array from the start)
+        bottom_slice = bottom_exclude + max(bottom_index - self.bottom_padding.value, 0)
+        top_slice = bottom_exclude + min(top_index + self.top_padding.value, len(z_aggregate))
 
         # Apply to new object
         y_data[:bottom_slice, :, :] = 0
