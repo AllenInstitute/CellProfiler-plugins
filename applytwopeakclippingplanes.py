@@ -228,11 +228,16 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
         bottom_index = 0
         top_index = len(z_aggregate)
 
+        # For displaying purposes
+        found_peaks = []
+
         # scipy-signal based local maxima
         if self.peak_method.value in [PEAK_NAIVE]:
             # `argrelmax` always returns a tuple, but z_aggregate is one dimensional
             local_maxima = scipy.signal.argrelmax(z_aggregate)[0]
             num_maxima = len(local_maxima)
+
+            found_peaks.extend(local_maxima)
 
             if num_maxima != 2:
                 log.warning("Unable to find only two maxima (found {}) - bypassing clipping operation".format(num_maxima))
@@ -245,6 +250,8 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             # Find the bottom (e.g. maximum of aggregate)
             bottom_index = np.argmax(z_aggregate)
 
+            found_peaks.append(bottom_index)
+
             # If the method is max only, we're done
             if self.peak_method.value == PEAK_APOSTERIORI:
                 # Get the array from there on out
@@ -255,9 +262,11 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
                 if not len(local_maxima):
                     log.warning("Unable to find a second maximum after the first initial one - bypassing clipping operation")
                     bottom_index = 0
+                    found_peaks.append("No second peak")
                 else:
                     # Add the index of the bottom slice as offset
                     top_index = local_maxima[0] + bottom_index
+                    found_peaks.append(top_index)
 
         # Apply padding based on user preference
         # Ensure the clipping plane isn't beyond the array's index
@@ -292,6 +301,8 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             workspace.display_data.z_aggregate = z_aggregate
 
             workspace.display_data.slices = [bottom_slice, top_slice]
+
+            workspace.display_data.found_peaks = found_peaks
 
             workspace.display_data.dimensions = dimensions
 
@@ -331,7 +342,7 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
         yvals = workspace.display_data.z_aggregate
         xvals = np.array(xvals).flatten()
         yvals = np.array(yvals).flatten()
-        title = self.aggregation_method.value
+        title = "Found peaks: [{}]".format(", ".join([str(x) for x in workspace.display_data.found_peaks]))
         # From: https://stackoverflow.com/a/44517442/3277713
         c = [0 if xval in workspace.display_data.slices else 1 for xval in xvals]
         x = 1
@@ -361,7 +372,7 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
                             alpha=0.75)
         axes.set_title(title)
         axes.set_xlabel('Z-index')
-        axes.set_ylabel('Aggregate value')
+        axes.set_ylabel(self.aggregation_method.value)
         axes.set_xscale('linear')
         axes.set_yscale('linear')
 
