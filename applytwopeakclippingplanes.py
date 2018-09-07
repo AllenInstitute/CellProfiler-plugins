@@ -26,6 +26,8 @@ NO           YES          NO
 import numpy as np
 import scipy.signal
 import logging
+import matplotlib.gridspec
+import matplotlib.pyplot
 
 import cellprofiler.image
 import cellprofiler.object
@@ -274,6 +276,8 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
 
             workspace.display_data.z_aggregate = z_aggregate
 
+            workspace.display_data.slices = [bottom_slice, top_slice]
+
             workspace.display_data.dimensions = dimensions
 
     def display(self, workspace, figure):
@@ -307,10 +311,44 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             y=1
         )
 
-        figure.subplot_scatter(
-            xvals=np.arange(len(workspace.display_data.z_aggregate)),
-            yvals=workspace.display_data.z_aggregate,
-            x=1,
-            y=1,
-            title=self.aggregation_method.value
-        )
+        # TODO: Don't override the default function when color settings are made available
+        xvals = np.arange(len(workspace.display_data.z_aggregate))
+        yvals = workspace.display_data.z_aggregate
+        xvals = np.array(xvals).flatten()
+        yvals = np.array(yvals).flatten()
+        title = self.aggregation_method.value
+        # From: https://stackoverflow.com/a/44517442/3277713
+        c = [0 if xval in workspace.display_data.slices else 1 for xval in xvals]
+        x = 1
+        y = 1
+        if figure.dimensions == 2:
+            figure.clear_subplot(x, y)
+
+            figure.figure.set_facecolor((1, 1, 1))
+            figure.figure.set_edgecolor((1, 1, 1))
+
+            axes = figure.subplot(x, y)
+        else:
+            gx, gy = figure._Figure__gridspec.get_geometry()
+
+            gridspec = matplotlib.gridspec.GridSpecFromSubplotSpec(
+                ncols=1,
+                nrows=1,
+                subplot_spec=figure._Figure__gridspec[gy * y + x],
+            )
+
+            axes = matplotlib.pyplot.Subplot(figure.figure, gridspec[0])
+
+        plot = axes.scatter(xvals, yvals,
+                            facecolor=(0.0, 0.62, 1.0),
+                            edgecolor='none',
+                            c=c,
+                            alpha=0.75)
+        axes.set_title(title)
+        axes.set_xlabel('Z-index')
+        axes.set_ylabel('Aggregate value')
+        axes.set_xscale('linear')
+        axes.set_yscale('linear')
+
+        if figure.dimensions == 3:
+            figure.figure.add_subplot(axes)
