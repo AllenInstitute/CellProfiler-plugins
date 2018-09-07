@@ -87,6 +87,19 @@ def aposteriori_reference():
     return reference.astype(numpy.uint16)
 
 
+# This is necessary because: https://github.com/pytest-dev/pytest/issues/349
+@pytest.fixture(params=['single_peak_reference', 'aposteriori_reference'])
+def bypass_meta_fixture(request):
+    return request.getfixturevalue(request.param)
+
+
+# See above for necessity of meta fixture
+@pytest.fixture(params=['two_peak_reference|2', 'single_peak_reference|3'])
+def max_only_meta_fixture(request):
+    param_name, expected_bottom = request.param.split('|')
+    return request.getfixturevalue(param_name), int(expected_bottom)
+
+
 def test_median_two_peak(volume_labels, two_peak_reference, module, object_set_empty, objects_empty,
                          image_set_empty, image_empty, workspace_empty):
     labels = volume_labels.copy()
@@ -295,18 +308,13 @@ def test_gradient_two_peak(volume_labels, two_peak_gradient_reference, module, o
     numpy.testing.assert_array_equal(actual, expected)
 
 
-@pytest.mark.parametrize(
-    argnames="reference",
-    argvalues=[single_peak_reference(), aposteriori_reference()],
-    ids=["single_peak", "triple_peak"]
-)
-def test_bypass_preserves(volume_labels, reference, module, object_set_empty, objects_empty,
+def test_bypass_preserves(volume_labels, bypass_meta_fixture, module, object_set_empty, objects_empty,
                           image_set_empty, image_empty, workspace_empty):
     labels = volume_labels.copy()
-    reference = reference.copy()
+    bypass_meta_fixture = bypass_meta_fixture.copy()
 
     objects_empty.segmented = labels
-    image_empty.pixel_data = reference
+    image_empty.pixel_data = bypass_meta_fixture
 
     module.x_name.value = "InputObjects"
     module.y_name.value = "OutputObjects"
@@ -354,16 +362,9 @@ def test_aposteriori_triple_peak(volume_labels, aposteriori_reference, module, o
     numpy.testing.assert_array_equal(actual, expected)
 
 
-@pytest.mark.parametrize(
-    argnames='peak_reference, expected_bottom',
-    argvalues=[
-        (two_peak_reference(), 2),
-        (single_peak_reference(), 3)
-    ],
-    ids=["single_peak", "triple_peak"]
-)
-def test_max_only(volume_labels, peak_reference, expected_bottom, module, object_set_empty,
+def test_max_only(volume_labels, max_only_meta_fixture, module, object_set_empty,
                   objects_empty, image_set_empty, image_empty, workspace_empty):
+    peak_reference, expected_bottom = max_only_meta_fixture
     labels = volume_labels.copy()
     reference = peak_reference.copy()
 
