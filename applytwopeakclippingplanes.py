@@ -27,8 +27,6 @@ import numpy as np
 import scipy.signal
 import skimage.measure
 import logging
-import matplotlib.gridspec
-import matplotlib.pyplot
 
 import cellprofiler.image
 import cellprofiler.object
@@ -310,6 +308,8 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
             workspace.display_data.dimensions = dimensions
 
     def display(self, workspace, figure):
+        import matplotlib.gridspec
+        import matplotlib.pyplot
         layout = (2, 2)
 
         figure.set_subplots(
