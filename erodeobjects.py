@@ -1,10 +1,10 @@
 # coding=utf-8
 
 """
-Erosion
-=======
+ErodeObjects
+==============
 
-**Erosion** shrinks bright shapes in an image. See `this tutorial`_ for more information.
+**ErodeObjects** shrinks bright shapes in an image. See `this tutorial`_ for more information.
 
 |
 
@@ -27,15 +27,15 @@ import cellprofiler.setting
 from cellprofiler.modules._help import HELP_FOR_STREL
 
 
-class Erosion(cellprofiler.module.ImageProcessing):
+class ErodeObjects(cellprofiler.module.ObjectProcessing):
     category = "Advanced"
 
-    module_name = "Erosion"
+    module_name = "ErodeObjects"
 
     variable_revision_number = 1
 
     def create_settings(self):
-        super(Erosion, self).create_settings()
+        super(ErodeObjects, self).create_settings()
 
         self.structuring_element = cellprofiler.setting.StructuringElement(allow_planewise=True,
                                                                            doc=HELP_FOR_STREL)
@@ -57,7 +57,7 @@ are the result of segmentation.
         )
 
     def settings(self):
-        __settings__ = super(Erosion, self).settings()
+        __settings__ = super(ErodeObjects, self).settings()
 
         return __settings__ + [
             self.structuring_element,
@@ -65,7 +65,7 @@ are the result of segmentation.
         ]
 
     def visible_settings(self):
-        __settings__ = super(Erosion, self).settings()
+        __settings__ = super(ErodeObjects, self).settings()
 
         return __settings__ + [
             self.structuring_element,
@@ -74,11 +74,11 @@ are the result of segmentation.
 
     def run(self, workspace):
 
-        x = workspace.image_set.get_image(self.x_name.value)
+        x = workspace.object_set.get_objects(self.x_name.value)
 
         is_strel_2d = self.structuring_element.value.ndim == 2
 
-        is_img_2d = x.pixel_data.ndim == 2
+        is_img_2d = x.segmented.ndim == 2
 
         if is_strel_2d and not is_img_2d:
 
@@ -92,13 +92,13 @@ are the result of segmentation.
 
             self.function = erode_objects
 
-        super(Erosion, self).run(workspace)
+        super(ErodeObjects, self).run(workspace)
 
 
 def _erode(labels, strel):
     array = numpy.zeros_like(labels)
     # Iterate through each label and dilate it
-    for n in numpy.unique(array):
+    for n in numpy.unique(labels):
         if n == 0:
             continue
 
