@@ -25,6 +25,7 @@ NO           YES          NO
 
 import numpy as np
 import scipy.signal
+import skimage.measure
 import logging
 import matplotlib.gridspec
 import matplotlib.pyplot
@@ -284,7 +285,9 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
 
         objects = cellprofiler.object.Objects()
 
-        objects.segmented = y_data
+        # Re-label, as some objects may be disconnected now
+        # TODO: Make this an option, not a default
+        objects.segmented = skimage.measure.label(y_data)
         objects.parent_image = x.parent_image
 
         workspace.object_set.add_objects(objects, y_name)
@@ -302,7 +305,7 @@ as the bottom clipping plane. *No clipping plane for the top will be used.*
 
             workspace.display_data.slices = [bottom_slice, top_slice]
 
-            workspace.display_data.found_peaks = found_peaks
+            workspace.display_data.found_peaks = [x + bottom_exclude for x in found_peaks]
 
             workspace.display_data.dimensions = dimensions
 
